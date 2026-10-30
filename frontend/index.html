@@ -1,122 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Incident & Outage Hub</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Incident & Outage Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans p-8">
-    <div class="max-w-5xl mx-auto">
-        <header class="mb-8 flex justify-between items-center">
-            <div>
-                <h1 class="text-3xl font-bold text-red-600"> SRE Incident & Post-Mortem Hub</h1>
-                <p class="text-gray-600 mt-1">Real-time outage tracking and operational control plane.</p>
-            </div>
-            <div id="statusBadge" class="bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold text-sm">
-                System Status: Operational
-            </div>
-        </header>
+  <div class="max-w-5xl mx-auto">
+    <header class="mb-8 flex justify-between items-center">
+      <div>
+        <h1 class="text-3xl font-bold text-red-600">🚨 SRE Incident & Post-Mortem Hub</h1>
+        <p class="text-gray-600 mt-1">Real-time outage tracking and operations dashboard</p>
+      </div>
+      <div id="statusBadge" class="bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold">
+        System Status: Operational
+      </div>
+    </header>
 
-        <!-- Create Incident Form -->
-        <div class="bg-white p-6 rounded-lg shadow mb-8">
-            <h2 class="text-xl font-semibold mb-4">Trigger New Incident (Webhook Simulator)</h2>
-            <form id="incidentForm" class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <input type="text" id="serviceName" placeholder="Service (e.g. auth-api)" required class="border p-2 rounded">
-                <input type="text" id="title" placeholder="Incident Summary" required class="border p-2 rounded md:col-span-2">
-                <select id="severity" class="border p-2 rounded">
-                    <option value="P1">P1 - Critical</option>
-                    <option value="P2" selected>P2 - Major</option>
-                    <option value="P3">P3 - Moderate</option>
-                    <option value="P4">P4 - Low</option>
-                </select>
-                <button type="submit" class="bg-red-600 text-white font-semibold p-2 rounded hover:bg-red-700">Trigger Alert</button>
-            </form>
-        </div>
-
-        <!-- Incidents Table -->
-        <div class="bg-white p-6 rounded-lg shadow">
-            <h2 class="text-xl font-semibold mb-4">Active & Historical Incidents</h2>
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b bg-gray-100">
-                        <th class="p-3">Severity</th>
-                        <th class="p-3">Service</th>
-                        <th class="p-3">Summary</th>
-                        <th class="p-3">Status</th>
-                        <th class="p-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="incidentTableBody">
-                    <!-- Populated dynamically -->
-                </tbody>
-            </table>
-        </div>
+    <div class="bg-white p-6 rounded-lg shadow mb-8">
+      <h2 class="text-xl font-semibold mb-4">Trigger New Incident (Webhook Simulator)</h2>
+      <form id="incidentForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <input type="text" id="serviceName" placeholder="Service (e.g. auth-api)" required class="border p-2 rounded">
+        <input type="text" id="title" placeholder="Incident Summary" required class="border p-2 rounded">
+        <select id="severity" class="border p-2 rounded">
+          <option value="P1">P1 - Critical</option>
+          <option value="P2" selected>P2 - Major</option>
+          <option value="P3">P3 - Moderate</option>
+          <option value="P4">P4 - Low</option>
+        </select>
+        <button type="submit" class="bg-red-600 text-white font-semibold p-2 rounded hover:bg-red-700">Create Incident</button>
+      </form>
     </div>
 
-    <script>
-        const API_URL = "http://localhost:8000";
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h2 class="text-xl font-semibold mb-4">Active & Historical Incidents</h2>
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b bg-gray-100">
+            <th class="p-3">ID</th>
+            <th class="p-3">Severity</th>
+            <th class="p-3">Service</th>
+            <th class="p-3">Summary</th>
+            <th class="p-3">Status</th>
+            <th class="p-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="incidentTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <script src="config.js"></script>
+  <script>
+    const API_URL = window.API_URL || "http://localhost:8000";
+    const openIds = new Set();
+    const notesCache = {};
 
-        async function fetchIncidents() {
-            const res = await fetch(`${API_URL}/incidents`);
-            const data = await res.json();
-            const tbody = document.getElementById("incidentTableBody");
-            tbody.innerHTML = "";
+    const SEV = {
+      P1: "bg-red-100 text-red-800",
+      P2: "bg-orange-100 text-orange-800",
+      P3: "bg-yellow-100 text-yellow-800",
+      P4: "bg-blue-100 text-blue-800",
+    };
 
-            let activeCount = 0;
+    // Build elements with textContent only, so API data can never inject HTML
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
 
-            data.forEach(inc => {
-                if (inc.status !== 'Resolved') activeCount++;
+    function btn(label, cls, onclick) {
+      const b = el("button", cls, label);
+      b.addEventListener("click", onclick);
+      return b;
+    }
 
-                let sevColor = inc.severity === 'P1' ? 'bg-red-100 text-red-800' : (inc.severity === 'P2' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800');
-                let statusColor = inc.status === 'Resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800 animate-pulse';
-                
-                let tr = document.createElement("tr");
-                tr.className = "border-b hover:bg-gray-50";
-                tr.innerHTML = `
-                    <td class="p-3"><span class="px-2 py-1 rounded text-xs font-semibold ${sevColor}">${inc.severity}</span></td>
-                    <td class="p-3 font-medium">${inc.service_name}</td>
-                    <td class="p-3 text-gray-800">${inc.title}</td>
-                    <td class="p-3"><span class="px-2 py-1 rounded text-xs font-semibold ${statusColor}">${inc.status}</span></td>
-                    <td class="p-3">
-                        ${inc.status !== 'Resolved' ? `<button onclick="resolveIncident(${inc.id})" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Resolve ✔️</button>` : '<span class="text-xs text-gray-400">Closed</span>'}
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+    async function api(path, options) {
+      const res = await fetch(`${API_URL}${path}`, options);
+      if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+      return res.json();
+    }
 
-            // Update header status badge
-            const badge = document.getElementById("statusBadge");
-            if (activeCount > 0) {
-                badge.className = "bg-red-100 text-red-800 px-4 py-2 rounded-full font-semibold text-sm animate-bounce";
-                badge.innerText = ` Active Outages: ${activeCount}`;
-            } else {
-                badge.className = "bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold text-sm";
-                badge.innerText = "System Status: Operational";
-            }
-        }
+    function postJson(path, body) {
+      return api(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    }
 
-        document.getElementById("incidentForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const service_name = document.getElementById("serviceName").value;
-            const title = document.getElementById("title").value;
-            const severity = document.getElementById("severity").value;
+    function notesPanel(inc) {
+      const box = el("div", "bg-gray-50 border rounded p-4");
+      const notes = notesCache[inc.id] || [];
 
-            await fetch(`${API_URL}/incidents`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ service_name, title, severity, description: "Triggered via dashboard simulator" })
-            });
+      if (inc.description) {
+        box.appendChild(el("p", "text-sm text-gray-600 mb-3", inc.description));
+      }
+      if (notes.length === 0) {
+        box.appendChild(el("p", "text-sm text-gray-500 mb-3", "No timeline notes yet."));
+      }
+      notes.forEach(n => {
+        const item = el("div", "mb-3");
+        const isAgent = n.author === "oncall-agent";
+        const head = el("div", "text-xs text-gray-500 mb-1");
+        head.appendChild(el("span",
+          "px-2 py-0.5 rounded font-semibold mr-2 " +
+          (isAgent ? "bg-purple-100 text-purple-800" : "bg-gray-200 text-gray-700"),
+          isAgent ? "🤖 " + n.author : n.author));
+        head.appendChild(el("span", "", new Date(n.created_at + "Z").toLocaleString()));
+        item.appendChild(head);
+        item.appendChild(el("pre", "whitespace-pre-wrap text-sm font-sans bg-white border rounded p-2", n.body));
+        box.appendChild(item);
+      });
 
-            document.getElementById("incidentForm").reset();
-            fetchIncidents();
-        });
-
-        async function resolveIncident(id) {
-            await fetch(`${API_URL}/incidents/${id}/resolve`, { method: "POST" });
-            fetchIncidents();
-        }
-
+      const form = el("form", "flex gap-2 mt-2");
+      const input = el("input", "border p-2 rounded flex-1 text-sm");
+      input.placeholder = "Add a timeline note...";
+      input.required = true;
+      const submit = el("button", "bg-gray-800 text-white text-sm px-3 rounded hover:bg-gray-900", "Add note");
+      submit.type = "submit";
+      form.append(input, submit);
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await postJson(`/incidents/${inc.id}/notes`, { author: "human", body: input.value });
         fetchIncidents();
-    </script>
+      });
+      box.appendChild(form);
+      return box;
+    }
+
+    async function fetchIncidents() {
+      let data;
+      try {
+        data = await api("/incidents");
+        await Promise.all([...openIds].map(async id => {
+          notesCache[id] = await api(`/incidents/${id}/notes`);
+        }));
+      } catch (err) {
+        console.error(err);
+        return;
+      }
+
+      const tbody = document.getElementById("incidentTableBody");
+      tbody.replaceChildren();
+      let activeCount = 0;
+
+      data.forEach(inc => {
+        const resolved = inc.status === "Resolved";
+        if (!resolved) activeCount++;
+
+        const tr = el("tr", "border-b hover:bg-gray-50");
+        tr.appendChild(el("td", "p-3 font-mono text-sm text-gray-500", "#" + inc.id));
+
+        const sevTd = el("td", "p-3");
+        sevTd.appendChild(el("span", "px-2 py-1 rounded text-xs font-semibold " + (SEV[inc.severity] || SEV.P4), inc.severity));
+        tr.appendChild(sevTd);
+
+        tr.appendChild(el("td", "p-3 font-medium", inc.service_name));
+        tr.appendChild(el("td", "p-3 text-gray-800", inc.title));
+
+        const stTd = el("td", "p-3");
+        stTd.appendChild(el("span",
+          "px-2 py-1 rounded text-xs font-semibold " +
+          (resolved ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"),
+          inc.status));
+        tr.appendChild(stTd);
+
+        const actTd = el("td", "p-3 space-x-2");
+        actTd.appendChild(btn(openIds.has(inc.id) ? "Hide notes" : "Notes",
+          "bg-gray-100 border px-3 py-1 rounded text-sm hover:bg-gray-200",
+          () => {
+            if (openIds.has(inc.id)) openIds.delete(inc.id); else openIds.add(inc.id);
+            fetchIncidents();
+          }));
+        if (!resolved) {
+          actTd.appendChild(btn("Resolve",
+            "bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700",
+            async () => { await api(`/incidents/${inc.id}/resolve`, { method: "POST" }); fetchIncidents(); }));
+        }
+        tr.appendChild(actTd);
+        tbody.appendChild(tr);
+
+        if (openIds.has(inc.id)) {
+          const detail = el("tr", "border-b");
+          const td = el("td", "p-3");
+          td.colSpan = 6;
+          td.appendChild(notesPanel(inc));
+          detail.appendChild(td);
+          tbody.appendChild(detail);
+        }
+      });
+
+      const badge = document.getElementById("statusBadge");
+      if (activeCount > 0) {
+        badge.className = "bg-red-100 text-red-800 px-4 py-2 rounded-full font-semibold";
+        badge.textContent = `⚠️ Active Outages: ${activeCount}`;
+      } else {
+        badge.className = "bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold";
+        badge.textContent = "System Status: Operational";
+      }
+    }
+
+    document.getElementById("incidentForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await postJson("/incidents", {
+        service_name: document.getElementById("serviceName").value,
+        title: document.getElementById("title").value,
+        severity: document.getElementById("severity").value,
+        description: "Triggered from dashboard",
+      });
+      e.target.reset();
+      fetchIncidents();
+    });
+
+    // Auto-refresh every 5s, but never while someone is typing a note
+    setInterval(() => {
+      const a = document.activeElement;
+      if (a && a.tagName === "INPUT" && a.closest("tbody")) return;
+      fetchIncidents();
+    }, 5000);
+
+    fetchIncidents();
+  </script>
 </body>
 </html>
