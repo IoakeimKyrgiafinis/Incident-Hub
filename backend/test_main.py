@@ -4,6 +4,9 @@ from sqlalchemy.orm import sessionmaker
 from database import Base, get_db
 from main import app
 import models
+import os
+os.environ.setdefault("OTEL_ENABLED", "false")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 
 # Use a local SQLite database for fast, isolated testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"

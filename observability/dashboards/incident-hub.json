@@ -1,0 +1,51 @@
+{
+  "title": "Incident Hub Overview",
+  "uid": "incident-hub-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Request rate by status",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "sum by (http_status_code) (rate(http_server_duration_milliseconds_count[1m]))",
+        "legendFormat": "{{http_status_code}}"
+      }]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "p95 latency (ms)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket[1m])))",
+        "legendFormat": "p95"
+      }]
+    },
+    {
+      "id": 3, "type": "stat", "title": "5xx error ratio (1m)",
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "red", "value": 0.05 } ] } } },
+      "targets": [{
+        "refId": "A",
+        "expr": "(sum(rate(http_server_duration_milliseconds_count{http_status_code=~\"5..\"}[1m])) or vector(0)) / sum(rate(http_server_duration_milliseconds_count[1m]))"
+      }]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Incidents created by severity",
+      "gridPos": { "x": 8, "y": 8, "w": 16, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "sum by (severity) (increase(incidents_created_total[5m]))",
+        "legendFormat": "{{severity}}"
+      }]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: incident-hub-alerts
+    folder: Incident Hub
+    interval: 30s
+    rules:
+      - uid: high-5xx-rate
+        title: High 5xx error rate
+        condition: C
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+          service: incident-hub-backend
+        annotations:
+          summary: "More than 5% of requests are failing with 5xx"
+          description: "5xx ratio over the last minute is above 5%. Check backend logs and traces."
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum(rate(http_server_duration_milliseconds_count{http_status_code=~"5.."}[1m])) or vector(0))
+                / sum(rate(http_server_duration_milliseconds_count[1m]))
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: { type: __expr__, uid: __expr__ }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+              datasource: { type: __expr__, uid: __expr__ }
