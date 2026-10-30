@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Incident & Outage Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans p-8">
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-red-600"> SRE Incident & Post-Mortem Hub</h1>
+                <p class="text-gray-600 mt-1">Real-time outage tracking and operational control plane.</p>
+            </div>
+            <div id="statusBadge" class="bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold text-sm">
+                System Status: Operational
+            </div>
+        </header>
+
+        <!-- Create Incident Form -->
+        <div class="bg-white p-6 rounded-lg shadow mb-8">
+            <h2 class="text-xl font-semibold mb-4">Trigger New Incident (Webhook Simulator)</h2>
+            <form id="incidentForm" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <input type="text" id="serviceName" placeholder="Service (e.g. auth-api)" required class="border p-2 rounded">
+                <input type="text" id="title" placeholder="Incident Summary" required class="border p-2 rounded md:col-span-2">
+                <select id="severity" class="border p-2 rounded">
+                    <option value="P1">P1 - Critical</option>
+                    <option value="P2" selected>P2 - Major</option>
+                    <option value="P3">P3 - Moderate</option>
+                    <option value="P4">P4 - Low</option>
+                </select>
+                <button type="submit" class="bg-red-600 text-white font-semibold p-2 rounded hover:bg-red-700">Trigger Alert</button>
+            </form>
+        </div>
+
+        <!-- Incidents Table -->
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-xl font-semibold mb-4">Active & Historical Incidents</h2>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b bg-gray-100">
+                        <th class="p-3">Severity</th>
+                        <th class="p-3">Service</th>
+                        <th class="p-3">Summary</th>
+                        <th class="p-3">Status</th>
+                        <th class="p-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="incidentTableBody">
+                    <!-- Populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000";
+
+        async function fetchIncidents() {
+            const res = await fetch(`${API_URL}/incidents`);
+            const data = await res.json();
+            const tbody = document.getElementById("incidentTableBody");
+            tbody.innerHTML = "";
+
+            let activeCount = 0;
+
+            data.forEach(inc => {
+                if (inc.status !== 'Resolved') activeCount++;
+
+                let sevColor = inc.severity === 'P1' ? 'bg-red-100 text-red-800' : (inc.severity === 'P2' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800');
+                let statusColor = inc.status === 'Resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800 animate-pulse';
+                
+                let tr = document.createElement("tr");
+                tr.className = "border-b hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="p-3"><span class="px-2 py-1 rounded text-xs font-semibold ${sevColor}">${inc.severity}</span></td>
+                    <td class="p-3 font-medium">${inc.service_name}</td>
+                    <td class="p-3 text-gray-800">${inc.title}</td>
+                    <td class="p-3"><span class="px-2 py-1 rounded text-xs font-semibold ${statusColor}">${inc.status}</span></td>
+                    <td class="p-3">
+                        ${inc.status !== 'Resolved' ? `<button onclick="resolveIncident(${inc.id})" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Resolve ✔️</button>` : '<span class="text-xs text-gray-400">Closed</span>'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Update header status badge
+            const badge = document.getElementById("statusBadge");
+            if (activeCount > 0) {
+                badge.className = "bg-red-100 text-red-800 px-4 py-2 rounded-full font-semibold text-sm animate-bounce";
+                badge.innerText = ` Active Outages: ${activeCount}`;
+            } else {
+                badge.className = "bg-green-100 text-green-800 px-4 py-2 rounded-full font-semibold text-sm";
+                badge.innerText = "System Status: Operational";
+            }
+        }
+
+        document.getElementById("incidentForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const service_name = document.getElementById("serviceName").value;
+            const title = document.getElementById("title").value;
+            const severity = document.getElementById("severity").value;
+
+            await fetch(`${API_URL}/incidents`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ service_name, title, severity, description: "Triggered via dashboard simulator" })
+            });
+
+            document.getElementById("incidentForm").reset();
+            fetchIncidents();
+        });
+
+        async function resolveIncident(id) {
+            await fetch(`${API_URL}/incidents/${id}/resolve`, { method: "POST" });
+            fetchIncidents();
+        }
+
+        fetchIncidents();
+    </script>
+</body>
+</html>
