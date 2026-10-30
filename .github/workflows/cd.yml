@@ -12,11 +12,31 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     steps:
-      - run: echo "deploy to dev here"   # host-specific step
+      - name: Trigger Render deploys
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_BACKEND_HOOK }}"
+          curl -fsS -X POST "${{ secrets.RENDER_FRONTEND_HOOK }}"
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS "${{ vars.BACKEND_URL }}/health"; then exit 0; fi
+            echo "waiting for backend ($i/40)..."; sleep 10
+          done
+          exit 1
 
   deploy-prod:
     needs: deploy-dev
     runs-on: ubuntu-latest
-    environment: production   # pauses here until you approve
+    environment: production   # pauses here until a reviewer approves
     steps:
-      - run: echo "deploy to prod here"  # host-specific step
+      - name: Trigger Render deploys
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_BACKEND_HOOK }}"
+          curl -fsS -X POST "${{ secrets.RENDER_FRONTEND_HOOK }}"
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS "${{ vars.BACKEND_URL }}/health"; then exit 0; fi
+            echo "waiting for backend ($i/40)..."; sleep 10
+          done
+          exit 1
