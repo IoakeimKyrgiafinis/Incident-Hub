@@ -177,4 +177,4 @@ You can also test the agent alone by posting a sample alert payload to `http://l
 
 ## Project board
 
-Task tracking: GitHub Projects board, linked from the repository.
+Task tracking: [GitHub Projects board](https://github.com/users/IoakeimKyrgiafinis/projects/3)
