@@ -24,6 +24,7 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_SERVICE_NAME=incident-hub-backend
       - CHAOS_ENABLED=true
+      - INTERNAL_TOKEN=dev-token
     depends_on:
       db:
         condition: service_healthy
@@ -76,6 +77,20 @@ services:
     ports:
       - "3001:3000"
     depends_on:
+      - prometheus
+      - tempo
+  oncall-agent:
+    build: ./oncall-agent
+    ports:
+      - "9000:9000"
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - PROMETHEUS_URL=http://prometheus:9090
+      - TEMPO_URL=http://tempo:3200
+      - INTERNAL_TOKEN=dev-token
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      - backend
       - prometheus
       - tempo
 

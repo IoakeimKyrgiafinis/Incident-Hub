@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-
+from collections import deque
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -13,6 +13,19 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+LOG_BUFFER = deque(maxlen=200)
+
+
+class RingBufferHandler(logging.Handler):
+    """Keeps the last N log records in memory so the on-call agent can read them."""
+
+    def emit(self, record):
+        try:
+            LOG_BUFFER.append(json.loads(JsonFormatter().format(record)))
+        except Exception:
+            pass
+
 
 # Custom business metric (a no-op until setup_telemetry() installs a provider)
 meter = metrics.get_meter("incident-hub")
@@ -53,6 +66,9 @@ def _setup_logging():
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         for h in logging.getLogger(name).handlers:
             h.setFormatter(JsonFormatter())
+    ring = RingBufferHandler()
+    app_logger.addHandler(ring)
+    logging.getLogger("uvicorn.error").addHandler(ring)
 
 
 def setup_telemetry(app, engine):

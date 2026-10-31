@@ -80,3 +80,10 @@ def test_resolve_incident():
     resolved_data = resolve_res.json()
     assert resolved_data["status"] == "Resolved"
     assert resolved_data["resolved_at"] is not None
+
+def test_add_and_list_notes():
+    inc = client.post("/incidents", json={"service_name": "api", "title": "t"}).json()
+    res = client.post(f"/incidents/{inc['id']}/notes", json={"body": "looking into it"})
+    assert res.status_code == 200
+    notes = client.get(f"/incidents/{inc['id']}/notes").json()
+    assert len(notes) == 1 and notes[0]["body"] == "looking into it"
