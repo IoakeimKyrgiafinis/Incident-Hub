@@ -165,6 +165,23 @@ You can also test the agent alone by posting a sample alert payload to `http://l
 - When the alert resolves, the agent adds a note but leaves the incident open, so a human confirms and closes it.
 - If the LLM call fails or no key is set, it falls back to a rule-based summary.
 
+## Course criteria coverage
+
+| Criterion | Where to find it | Status |
+|---|---|---|
+| Problem description | Top of this README | Done |
+| Product specification | Acceptance criteria above, and the Project board | Done |
+| Agent team specification | Not written yet | Missing |
+| Context management | `AGENTS.md` | Partial: no modular docs yet |
+| Application | Dashboard, FastAPI backend, PostgreSQL; runs with `docker compose up --build` | Done |
+| Testing | `backend/test_main.py`, run with `pytest` | Partial: API/integration tests only, no separate unit tests |
+| Containerization | `docker-compose.yml` starts the whole stack including the database | Done |
+| Deployment | Production dashboard and API links at the top | Done |
+| CI/CD | `.github/workflows/ci.yml` and `cd.yml`; dev auto-deploys, production needs approval | Done |
+| Observability | OpenTelemetry to Tempo, Prometheus and Grafana (local stack) | Done |
+| Alerting on user impact | Grafana rule "High 5xx error rate" in `observability/alert-rules.yml` | Done |
+| On-call agent | `oncall-agent/` opens an incident and writes a diagnostic note | Partial: diagnoses but does not fix |
+
 ## Known limitations
 
 - Failures are injected for the demo; the hub currently monitors only itself.
