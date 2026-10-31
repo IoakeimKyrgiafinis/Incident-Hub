@@ -2,6 +2,15 @@
 
 An incident-management hub that receives alerts from a monitoring stack, keeps a timeline of notes for each incident, and uses an **on-call agent** to investigate automatically. When an alert fires, the agent gathers evidence from metrics, logs and traces, opens an incident, and writes a diagnostic note for the responder.
 
+## Live demo
+
+- **Production dashboard:** https://incident-hub-prod-web.onrender.com
+- **Production API docs:** https://incident-hub-esv5.onrender.com/docs
+
+
+Note: the services run on Render's free plan. The first request after a period of inactivity can take up to a minute while the backend wakes up, and the free database expires after 30 days, so the live demo may stop working after that.
+
+
 > **Scope note.** In this project the hub monitors **itself**, and failures are injected on purpose with a chaos endpoint so the whole alert-to-agent pipeline can be demonstrated. Everything after the injected failure (metrics, alert rule, webhook, agent, incident, note) runs for real. In real use the same pipeline would watch other services. See [Future work](#future-work).
 
 ## Problem
